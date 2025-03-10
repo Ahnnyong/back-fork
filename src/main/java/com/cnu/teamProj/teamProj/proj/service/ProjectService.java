@@ -4,6 +4,7 @@ import com.cnu.teamProj.teamProj.manage.entity.ClassInfo;
 import com.cnu.teamProj.teamProj.manage.repository.ClassRepository;
 import com.cnu.teamProj.teamProj.proj.dto.ProjCreateDto;
 import com.cnu.teamProj.teamProj.proj.dto.ProjDto;
+import com.cnu.teamProj.teamProj.proj.dto.ProjUpdateDto;
 import com.cnu.teamProj.teamProj.proj.entity.ProjMem;
 import com.cnu.teamProj.teamProj.proj.entity.Project;
 import com.cnu.teamProj.teamProj.proj.repository.MemberRepository;
@@ -21,12 +22,13 @@ import java.util.Optional;
 @Service
 public class ProjectService {
     private MemberRepository memberRepository;
-    private ProjRepository projRepostiory;
+    private ProjRepository projRepository;
     private ClassRepository classRepository;
+
     @Autowired
-    public ProjectService(MemberRepository memberRepository, ProjRepository projRepostiory, ClassRepository classRepository) {
+    public ProjectService(MemberRepository memberRepository, ProjRepository projRepository, ClassRepository classRepository) {
         this.memberRepository = memberRepository;
-        this.projRepostiory = projRepostiory;
+        this.projRepository = projRepository;
         this.classRepository = classRepository;
     }
 
@@ -37,7 +39,7 @@ public class ProjectService {
         List<ProjMem> projs = memberRepository.findById(userId).stream().toList();
         for(ProjMem proj : projs) {
             String projId = proj.getProjId();
-            Project project = projRepostiory.findById(projId).stream().toList().get(0);
+            Project project = projRepository.findById(projId).stream().toList().get(0);
             ret.add(new ProjDto(project.getClassId().getClassId(), project.getProjName()));
         }
         return ret;
@@ -49,9 +51,10 @@ public class ProjectService {
         //등록된 수업이 아니라면 바로 -1반환
         if(!classRepository.existsById(dto.getClassId())) return -1;
         //날짜 형식 체크
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssX");
+        ZonedDateTime date;
         try{
-            ZonedDateTime.parse(dto.getDate().toString(), formatter);
+            date = ZonedDateTime.parse(dto.getDate().toString(), formatter);
         } catch(DateTimeParseException e){
             return -2;
         }
@@ -64,14 +67,33 @@ public class ProjectService {
         String projId = dto.getClassId()+(classInfo.getProjCnt());
 
         Project project = new Project();
-        project.setDate(dto.getDate());
+        project.setDate(date);
         project.setGoal(dto.getGoal());
         project.setGithub(dto.getGithub());
         project.setProjId(projId);
         project.setClassId(classInfo);
         project.setProjName(dto.getProjName());
         if(dto.getTeamName() != null) project.setTeamName(dto.getTeamName());
-        projRepostiory.save(project);
+        projRepository.save(project);
         return 1;
+    }
+
+    public boolean updateProject(ProjUpdateDto dto) {
+        Optional<Project> projectOptional=projRepository.findById(dto.getProjectId());
+        if (projectOptional.isPresent()) {
+            Project project = projectOptional.get();
+
+            //수정 가능한 필드만 업데이트
+            if (dto.getDate()!=null) project.setDate(dto.getDate());
+            if (dto.getGoal()!=null) project.setGoal(dto.getGoal());
+            if (dto.getProjName()!= null) project.setProjName(dto.getProjName());
+            if (dto.getGithub()!= null) project.setGithub(dto.getGithub());
+            if (dto.getTeamName()!= null) project.setTeamName(dto.getTeamName());
+
+            projRepository.save(project);
+            return true;
+
+        }
+        return false;
     }
 }
